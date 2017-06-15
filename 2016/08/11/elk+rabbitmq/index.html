@@ -1,0 +1,1405 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next mist use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic|PT Mono:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="elk,logstash,elasticsearch,kibana,rabbitmq," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.1.1" />
+
+
+
+
+
+
+<meta name="description" content="前言查看日志的传统方法是：登录操作系统，使用命令工具如cat、tail、sed、awk、grep等等进行过滤输出后分析，处理少量日志还好，日志量大处理效率就没那么高了。而且很多情况下开发人员需要查看并分析日志进行排错，但他们对Linux命令又不是太熟悉，而且有时候又不能赋予他们服务器权限，更多时候是运维把日志文件导出来发给开发人员，这无疑会给我们增加工作量。ELK（Elasticsearch+Lo">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ELK+RabbitMQ架构处理nginx及tomcat日志">
+<meta property="og:url" content="https://liang178.github.io/2016/08/11/elk+rabbitmq/index.html">
+<meta property="og:site_name" content="茶栈">
+<meta property="og:description" content="前言查看日志的传统方法是：登录操作系统，使用命令工具如cat、tail、sed、awk、grep等等进行过滤输出后分析，处理少量日志还好，日志量大处理效率就没那么高了。而且很多情况下开发人员需要查看并分析日志进行排错，但他们对Linux命令又不是太熟悉，而且有时候又不能赋予他们服务器权限，更多时候是运维把日志文件导出来发给开发人员，这无疑会给我们增加工作量。ELK（Elasticsearch+Lo">
+<meta property="og:image" content="http://obbrvy8yl.bkt.clouddn.com/20160803layout.png">
+<meta property="og:image" content="http://obbrvy8yl.bkt.clouddn.com/20160803login.png">
+<meta property="og:image" content="http://obbrvy8yl.bkt.clouddn.com/20160803define.png">
+<meta property="og:image" content="http://obbrvy8yl.bkt.clouddn.com/20160803status.png">
+<meta property="og:updated_time" content="2017-06-09T07:24:17.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="ELK+RabbitMQ架构处理nginx及tomcat日志">
+<meta name="twitter:description" content="前言查看日志的传统方法是：登录操作系统，使用命令工具如cat、tail、sed、awk、grep等等进行过滤输出后分析，处理少量日志还好，日志量大处理效率就没那么高了。而且很多情况下开发人员需要查看并分析日志进行排错，但他们对Linux命令又不是太熟悉，而且有时候又不能赋予他们服务器权限，更多时候是运维把日志文件导出来发给开发人员，这无疑会给我们增加工作量。ELK（Elasticsearch+Lo">
+<meta name="twitter:image" content="http://obbrvy8yl.bkt.clouddn.com/20160803layout.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Mist',
+    sidebar: {"position":"left","display":"post","offset":12,"offset_float":0,"b2t":false,"scrollpercent":false},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="https://liang178.github.io/2016/08/11/elk+rabbitmq/"/>
+
+
+
+
+
+  <title>ELK+RabbitMQ架构处理nginx及tomcat日志 | 茶栈</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">茶栈</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            关于
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br />
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off"
+             placeholder="搜索..." spellcheck="false"
+             type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="https://liang178.github.io/2016/08/11/elk+rabbitmq/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="秦二弟">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.png">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="茶栈">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">ELK+RabbitMQ架构处理nginx及tomcat日志</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2016-08-11T00:00:00+08:00">
+                2016-08-11
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/ELK/" itemprop="url" rel="index">
+                    <span itemprop="name">ELK</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a class="cloud-tie-join-count" href="/2016/08/11/elk+rabbitmq/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count join-count" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="page-pv"><i class="fa fa-file-o"></i>
+            <span class="busuanzi-value" id="busuanzi_value_page_pv" ></span>
+            </span>
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>查看日志的传统方法是：登录操作系统，使用命令工具如cat、tail、sed、awk、grep等等进行过滤输出后分析，处理少量日志还好，日志量大处理效率就没那么高了。而且很多情况下开发人员需要查看并分析日志进行排错，但他们对Linux命令又不是太熟悉，而且有时候又不能赋予他们服务器权限，更多时候是运维把日志文件导出来发给开发人员，这无疑会给我们增加工作量。ELK（Elasticsearch+Logstash+Kibana）架构就是专门为采集、分析、存储日志所设计的：</p>
+<p>Elasticsearch：基于Lucenne的搜索服务器，提供一个分布式多用户的全文搜索引擎，能过做到实时搜索。</p>
+<p>Logstash：可以对日志进行采集、过滤、输出。</p>
+<p>Kibana：可以汇总、分析、搜索日志数据并提供友好的web界面。</p>
+<p>工作流程：logstash agent监控并过滤日志，为了保证日志的完整性先将日志内容输出到RabbitMQ进行存储；logstash indexer再把RabbitMQ上的日志队列收集后发送给全文搜索服务器Elasticsearch，然后可以用Elasticsearch进行自定义搜索，再通过Kibana来结合自定义搜索进行页面展示。</p>
+<h2 id="ELK架构图"><a href="#ELK架构图" class="headerlink" title="ELK架构图"></a>ELK架构图</h2><p><img src="http://obbrvy8yl.bkt.clouddn.com/20160803layout.png" alt=""></p>
+<p>从官网下载软件logstash、elasticsearch、kibana以及JRE，分别在相应主机上安装，logstash和Elasticsearch依赖于JRE</p>
+<pre><code>wget https://download.elastic.co/kibana/kibana/kibana-4.5.3-1.x86_64.rpm
+wget https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/rpm/elasticsearch/2.3.4/elasticsearch-2.3.4.rpm
+wget https://download.elastic.co/logstash/logstash/packages/centos/logstash-2.3.4-1.noarch.rpm
+wget http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jre-8u101-linux-x64.rpm
+</code></pre><h2 id="RabbitMQ配置"><a href="#RabbitMQ配置" class="headerlink" title="RabbitMQ配置"></a>RabbitMQ配置</h2><p>安装RabbitMQ</p>
+<pre><code>yum install rabbitmq-server
+</code></pre><p>启用RabbitMQ的web管理功能</p>
+<pre><code>/usr/lib/rabbitmq/bin/rabbitmq-plugins enable rabbitmq_management
+/usr/lib/rabbitmq/bin/rabbitmq-plugins list
+</code></pre><p>下载并安装命令管理工具rabbitmqadmin</p>
+<pre><code>wget http://rabbitmq-server:15672/cli/rabbitmqadmin
+mv rabbitmqadmin /usr/local/bin
+chmod +x /usr/local/bin/rabbitmqadmin
+</code></pre><p>给rabbitmqadmin工具准备配置文件</p>
+<pre><code># vim /etc/mqadmin.conf
+[default]
+hostname = localhost
+port = 55672
+username = liang
+password = liang123
+</code></pre><p>创建一个vhost和user并赋权</p>
+<pre><code>rabbitmqctl add_user liang liang123
+rabbitmqctl add_vhost elk
+rabbitmqctl set_permissions -p elk liang &quot;.*&quot; &quot;.*&quot; &quot;.*&quot;
+rabbitmqctl set_user_tags liang administrator
+rabbitmqctl list_permissions -p elk
+</code></pre><p>创建一个exchange</p>
+<pre><code>rabbitmqadmin -c /etc/mqadmin.conf declare exchange --vhost=elk name=elk_exchange type=direct
+</code></pre><p>创建一个queue</p>
+<pre><code>rabbitmqadmin -c /etc/mqadmin.conf declare queue --vhost=elk name=elk_queue durable=true
+</code></pre><p>创建一个binding，绑定之前创建的exchange和queue并设置一个routing_key</p>
+<pre><code>rabbitmqadmin -c /etc/mqadmin.conf --vhost=elk declare binding source=&quot;elk_exchange&quot; destination=&quot;elk_queue&quot; routing_key=&quot;elk_key&quot;
+</code></pre><p>以上关于RabbitMQ的配置均可以通过登录web控制台进行操作，更简单方便，这里就不再演示了。</p>
+<h2 id="Elasticsearch配置"><a href="#Elasticsearch配置" class="headerlink" title="Elasticsearch配置"></a>Elasticsearch配置</h2><p>给elasticsearch安装shield插件，用于权限控制，此插件是收费产品，可免费使用30天，到期后可降级使用，只是关于集群的一些功能将不可用。</p>
+<pre><code>cd /usr/share/elasticsearch
+bin/plugin install license
+bin/plugin install shield
+</code></pre><p>如有需要修改elasticsearch.yml，配置服务监听地址，默认监听在127.0.0.1上，端口是9200和9300；配置日志数据的存储路径，默认保存在/var/lib/elasticsearch下</p>
+<pre><code>path.data: /data/elastic_data
+network.host: 192.168.X.X
+</code></pre><p>配置shield，修改shield的权限控制文件roles.yml，修改默认角色logstash的权限，指定可创建的索引文件；并添加一个readonly的角色dashboard，用于控制用户在kibana上的权限。</p>
+<pre><code>logstash:
+  cluster:
+    - manage_index_templates
+  indices:
+    - names: [ &apos;logstash-*&apos;,&apos;nginx-*&apos;,&apos;tomcat-*&apos; ]
+        privileges:
+        - write
+        - delete
+        - create_index
+
+dashboard:
+  indices:
+&apos;tomcat-*&apos;:
+  - indices:admin/mappings/fields/get
+  - indices:admin/validate/query
+  - indices:data/read/search
+  - indices:data/read/msearch
+  - indices:data/read/field_stats
+  - indices:admin/get
+&apos;.kibana&apos;:
+  - indices:admin/exists
+  - indices:admin/mappings/fields/get
+  - indices:admin/refresh
+  - indices:admin/validate/query
+  - indices:data/read/get
+  - indices:data/read/mget
+  - indices:data/read/search
+</code></pre><p>配置shield，创建用户logstash、kibana、readuser、admin并指定相应角色</p>
+<pre><code>cd /usr/share/elasticsearch/bin/shield
+./esusers useradd logstash -p 123456 -r logstash
+./esusers useradd kibana -p 123456 -r kibana4_server  
+./esusers useradd readuser -p 123456 -r dashboard
+./esusers useradd admin -p 123456 -r admin 
+</code></pre><p>启动Elasticsearch</p>
+<pre><code>service elasticsearch start
+</code></pre><h2 id="Logstash配置"><a href="#Logstash配置" class="headerlink" title="Logstash配置"></a>Logstash配置</h2><p>配置nginx服务器输出json格式日志</p>
+<pre><code>log_format json &apos;{&quot;@timestamp&quot;:&quot;$time_iso8601&quot;,&apos;
+   &apos;&quot;host&quot;:&quot;$server_addr&quot;,&apos;
+   &apos;&quot;clientip&quot;:&quot;$remote_addr&quot;,&apos; &apos;&quot;size&quot;:$body_bytes_sent,&apos;
+   &apos;&quot;responsetime&quot;:$request_time,&apos;
+   &apos;&quot;upstreamtime&quot;:&quot;$upstream_response_time&quot;,&apos;
+   &apos;&quot;upstreamhost&quot;:&quot;$upstream_addr&quot;,&apos;
+   &apos;&quot;http_host&quot;:&quot;$host&quot;,&apos;
+   &apos;&quot;url&quot;:&quot;$uri&quot;,&apos;
+   &apos;&quot;xff&quot;:&quot;$http_x_forwarded_for&quot;,&apos;
+   &apos;&quot;referer&quot;:&quot;$http_referer&quot;,&apos;
+   &apos;&quot;agent&quot;:&quot;$http_user_agent&quot;,&apos;
+   &apos;&quot;status&quot;:&quot;$status&quot;}&apos;;
+access_log  /usr/local/nginx/logs/api_json.log  json;
+</code></pre><p>配置logstash agent采集nginx日志并输出到RabbitMQ；为了排错，同时输出一份日志到本地。</p>
+<pre><code># vim /etc/logstash/conf.d/ngx_log.conf
+input {
+file {
+    path =&gt; &quot;/usr/local/nginx/logs/api_json.log&quot;
+    codec =&gt; &quot;json&quot;
+    type =&gt; &quot;nginx&quot;
+}
+}
+
+output {
+rabbitmq { 
+    host =&gt; &quot;RabbitMQ_server&quot;
+    port =&gt; &quot;5672&quot;
+    vhost =&gt; &quot;elk&quot;
+    exchange =&gt; &quot;elk_exchange&quot;
+    exchange_type =&gt; &quot;direct&quot;
+    key =&gt; &quot;elk_key&quot;
+    user =&gt; &quot;liang&quot;
+    password =&gt; &quot;liang123&quot;
+    }
+stdout { codec =&gt; rubydebug }
+}
+</code></pre><p>配置tomcat服务器输出json格式日志，修改工程的logback.xml配置文件，添加如下配置</p>
+<pre><code>&lt;appender name=&quot;LOGSTASH&quot; class=&quot;ch.qos.logback.core.rolling.RollingFileAppender&quot;&gt; 
+    &lt;file&gt;${catalina.base}/logs/tomcat_json.log&lt;/file&gt;
+    &lt;encoder class=&quot;net.logstash.logback.encoder.LogstashEncoder&quot;&gt;
+        &lt;charset&gt;utf8&lt;/charset&gt;
+    &lt;/encoder&gt; 
+    &lt;rollingPolicy class=&quot;ch.qos.logback.core.rolling.TimeBasedRollingPolicy&quot;&gt;  
+        &lt;fileNamePattern&gt;${catalina.base}/logs/tomcat_json-%d{yyyy-MM-dd}.log&lt;/fileNamePattern&gt;  
+    &lt;/rollingPolicy&gt;  
+&lt;/appender&gt;
+&lt;root level=&quot;info&quot;&gt;
+    &lt;appender-ref ref=&quot;LOGSTASH&quot; /&gt;
+&lt;/root&gt;
+</code></pre><p>下载依赖的jar包logstash-logback-encoder到{CATALINA_BASE}/lib</p>
+<pre><code>wget http://central.maven.org/maven2/net/logstash/logback/logstash-logback-encoder/4.4/logstash-logback-encoder-4.4.jar
+</code></pre><p>配置logstash agent采集tomcat日志并输出到RabbitMQ</p>
+<pre><code># vim /etc/logstash/conf.d/tomcat_log.conf
+input {
+file {
+    path =&gt; &quot;/usr/local/tomcat/logs/tomcat_json.log&quot;
+    codec =&gt; &quot;json&quot;
+    type =&gt; &quot;tomcat&quot;
+}
+}
+
+output {
+rabbitmq { 
+    host =&gt; &quot;RabbitMQ_server&quot;
+    port =&gt; &quot;5672&quot;
+    vhost =&gt; &quot;elk&quot;
+    exchange =&gt; &quot;elk_exchange&quot;
+    exchange_type =&gt; &quot;direct&quot;
+    key =&gt; &quot;elk_key&quot;
+    user =&gt; &quot;liang&quot;
+    password =&gt; &quot;liang123&quot;
+    }
+stdout { codec =&gt; rubydebug }
+}
+</code></pre><p>配置logstash indexer把日志从RabbitMQ输出到Elasticsearch</p>
+<pre><code># vim /etc/logstash/conf.d/rabbitmq.conf
+input {
+rabbitmq {
+    host =&gt; &quot;127.0.0.1&quot;
+    subscription_retry_interval_seconds =&gt; &quot;5&quot;
+    vhost =&gt; &quot;elk&quot;
+    exchange =&gt; &quot;elk_exchange&quot;
+    queue =&gt; &quot;elk_queue&quot;
+    durable =&gt; &quot;true&quot;
+    key =&gt; &quot;elk_key&quot;
+    user =&gt; &quot;liang&quot;
+    password =&gt; &quot;liang123&quot;
+    }
+}
+output {
+if [type] == &quot;nginx&quot; {
+    elasticsearch {
+        hosts =&gt; &quot;Elasticsearch_server:9200&quot;
+        user =&gt; &quot;logstash&quot;
+        password =&gt; &quot;123456&quot;
+        index =&gt; &quot;nginx-%{+YYYY.MM.dd}&quot;
+    }
+}
+else if [type] == &quot;tomcat&quot; {
+    elasticsearch {
+        hosts =&gt; &quot;Elasticsearch_server:9200&quot;
+        user =&gt; &quot;logstash&quot;
+        password =&gt; &quot;123456&quot;
+        index =&gt; &quot;tomcat-%{+YYYY.MM.dd}&quot;
+    }
+}
+else {
+    file {
+        path =&gt; &quot;/var/log/logstash/unknown_messages.log&quot;
+        } 
+    }
+stdout { codec =&gt; rubydebug }
+}
+</code></pre><p>启动logstash服务</p>
+<pre><code>service logstash start
+</code></pre><p>在RabbitMQ服务器上查看是否接收到日志消息，登录RabbitMQ的web控制台查看详细信息。</p>
+<pre><code>rabbitmqctl list_queues -p elk
+</code></pre><h2 id="kibana配置"><a href="#kibana配置" class="headerlink" title="kibana配置"></a>kibana配置</h2><p>给kibana安装shield插件，用于权限控制</p>
+<pre><code>cd /opt/kibana/bin
+./kibana plugin --install kibana/shield/2.3.4
+</code></pre><p>修改kibana的主配置文件kibana.yml，似乎启用权限控制后强制使用https，shield的加密key可以随便指定，会话超时时间默认是30分钟，超时时间的单位为毫秒</p>
+<pre><code>elasticsearch.username: &quot;kibana&quot;
+elasticsearch.password: &quot;123456&quot;
+elasticsearch.url: &quot;http://localhost:9200&quot;
+server.ssl.cert: /opt/kibana/ssl/kibana.crt
+server.ssl.key: /opt/kibana/ssl/kibana.key
+shield.encryptionKey: &quot;abc123&quot;
+shield.sessionTimeout: 600000
+</code></pre><p>启动kibana</p>
+<pre><code>service kibana start
+</code></pre><p>kibana启用后，就可以通过<a href="https://server:5601" target="_blank" rel="external">https://server:5601</a> 进行访问了。如有需要配置Apache做个反向代理</p>
+<pre><code>NameVirtualHost *:443
+&lt;VirtualHost *:443&gt;
+ProxyRequests on
+SSLEngine on
+SSLProxyEngine on
+SSLCertificateFile /opt/kibana/ssl/kibana.crt
+SSLCertificateKeyFile /opt/kibana/ssl/kibana.key
+ProxyPass / https://127.0.0.1:5601/
+ProxyPassReverse / https://127.0.0.1:5601/
+&lt;/VirtualHost&gt;
+</code></pre><p>登录界面。</p>
+<p><img src="http://obbrvy8yl.bkt.clouddn.com/20160803login.png" alt=""></p>
+<p>填入之前定义的索引文件，就可以处理日志了。<br><img src="http://obbrvy8yl.bkt.clouddn.com/20160803define.png" alt=""></p>
+<p>看到kibana有收到日志就算成功了。<br><img src="http://obbrvy8yl.bkt.clouddn.com/20160803status.png" alt=""></p>
+<p>至此，整个架构部署完毕，如有错误或不足之处，欢迎指正。</p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+  <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+    <div>如果你觉得这篇文章对你有用，那就请博主喝杯茶吧！</div>
+    <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+      <span>赏</span>
+    </button>
+    <div id="QR" style="display: none;">
+      
+        <div id="wechat" style="display: inline-block">
+          <img id="wechat_qr" src="/images/weixinpay.jpg" alt="秦二弟 WeChat Pay"/>
+          <p>微信打赏</p>
+        </div>
+      
+      
+        <div id="alipay" style="display: inline-block">
+          <img id="alipay_qr" src="/images/alipay.jpg" alt="秦二弟 Alipay"/>
+          <p>支付宝打赏</p>
+        </div>
+      
+    </div>
+  </div>
+
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/elk/" rel="tag"># elk</a>
+          
+            <a href="/tags/logstash/" rel="tag"># logstash</a>
+          
+            <a href="/tags/elasticsearch/" rel="tag"># elasticsearch</a>
+          
+            <a href="/tags/kibana/" rel="tag"># kibana</a>
+          
+            <a href="/tags/rabbitmq/" rel="tag"># rabbitmq</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2016/08/11/lamp/" rel="next" title="LAMP运行环境搭建及部署php程序软件">
+                <i class="fa fa-chevron-left"></i> LAMP运行环境搭建及部署php程序软件
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2016/08/11/cobbler/" rel="prev" title="基于Cobbler实现多版本操作系统自动部署">
+                基于Cobbler实现多版本操作系统自动部署 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="cloud-tie-wrapper" class="cloud-tie-wrapper"></div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/avatar.png"
+               alt="秦二弟" />
+          <p class="site-author-name" itemprop="name">秦二弟</p>
+           
+              <p class="site-description motion-element" itemprop="description">没事写写东西，集中一下注意力……</p>
+          
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives/">
+                <span class="site-state-item-count">6</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">5</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">15</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              Links
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://wdxtub.com/" title="小土刀" target="_blank">小土刀</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ELK架构图"><span class="nav-number">2.</span> <span class="nav-text">ELK架构图</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#RabbitMQ配置"><span class="nav-number">3.</span> <span class="nav-text">RabbitMQ配置</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Elasticsearch配置"><span class="nav-number">4.</span> <span class="nav-text">Elasticsearch配置</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Logstash配置"><span class="nav-number">5.</span> <span class="nav-text">Logstash配置</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#kibana配置"><span class="nav-number">6.</span> <span class="nav-text">kibana配置</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy;  2015 - 
+  <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">秦二弟</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Mist
+  </a>
+</div>
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+    <span class="site-uv">
+      本站访客数
+      <span class="busuanzi-value" id="busuanzi_value_site_uv"></span>
+      人次
+    </span>
+  
+
+  
+    <span class="site-pv">
+      本站总访问量
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+      次
+    </span>
+  
+</div>
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+    
+    <script>
+      var cloudTieConfig = {
+        url: document.location.href, 
+        sourceId: "",
+        productKey: "39d18b45d37d42b3a45827e67e262679",
+        target: "cloud-tie-wrapper"
+      };
+    </script>
+    <script src="https://img1.ws.126.net/f2e/tie/yun/sdk/loader.js"></script>
+  
+
+
+
+
+
+
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
