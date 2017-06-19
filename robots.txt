@@ -11,5 +11,5 @@ Disallow: /fonts/
 Disallow: /vendors/
 Disallow: /fancybox/
 
-Sitemap: https://liang178.github.io/sitemap.xml
-Sitemap: https://liang178.github.io/baidusitemap.xml
+Sitemap: http://51linux.me/sitemap.xml
+Sitemap: http://51linux.me/baidusitemap.xml
